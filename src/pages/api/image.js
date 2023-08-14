@@ -42,6 +42,7 @@ export default async function handler(req, res) {
   }
   res.status(200).json({
     // data: mock_data.data,
+    // image: response.data.data[0].url
     image: mock_data.data[0].url,
   })
 }

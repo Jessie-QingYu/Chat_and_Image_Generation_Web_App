@@ -5,7 +5,7 @@ export const config = {
 export default async function handler(req, context) {
     const { prompt } = await req.json();
 
-    completion = await fetch('https://api.openai.com/v1/chat/completions', {
+    const completion = await fetch('https://api.openai.com/v1/chat/completions', {
         method: 'POST',
         body: JSON.stringify({
             model: 'gpt-3.5-turbo',

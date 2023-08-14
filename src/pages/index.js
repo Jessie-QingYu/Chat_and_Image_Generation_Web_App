@@ -1,5 +1,6 @@
 import { useState } from 'react';
 import Head from 'next/head'
+import { createParser } from 'eventsource-parser';
 
 import Layout from '@/components/Layout';
 import Section from '@/components/Section';
@@ -33,19 +34,49 @@ export default function Home() {
     setIsLoading(true);
     setText(undefined);
 
-    const { data } = await fetch('/api/chat', {
+    const response = await fetch('/api/chat-stream', {
       method: 'POST',
       body: JSON.stringify({
         prompt
-      })
-    }).then(r => r.json());
+      }),
+      headers: {
+        'Content-Type': 'application/json',
+      },
+    });
 
-    setText(data);
+    const reader = response.body.getReader();
+    const decoder = new TextDecoder();
+
+    function onParse(event) {
+      if (event.type === 'event') {
+        try {
+          const data = JSON.parse(event.data);
+          data.choices
+            .filter(({ delta }) => !!delta.content)
+            .forEach(({ delta }) => {
+              setText(prev => {
+                return `${prev || ''}${delta.content}`;
+              })
+            });
+        } catch (e) {
+          console.log(e)
+        }
+      }
+    }
+
+    const parser = createParser(onParse)
+
+    while (true) {
+      const { value, done } = await reader.read();
+      const dataString = decoder.decode(value);
+      if (done || dataString.includes('[DONE]')) break;
+      parser.feed(dataString);
+    }
 
     setIsLoading(false);
   }
-  
-  
+
+
   async function handleOnGenerateImage(e) {
     e.preventDefault();
 
@@ -63,7 +94,7 @@ export default function Home() {
         prompt
       })
     }).then(res => res.json());
-    
+
     setImage(image);
     setIsLoading(false);
   }
@@ -78,7 +109,7 @@ export default function Home() {
       </Head>
       <Section>
         <Container size="content">
-        <Form className={styles.form} onSubmit={handleOnGenerateText}>
+          <Form className={styles.form} onSubmit={handleOnGenerateText}>
             <h2>Generate Chat Completion</h2>
             <FormRow>
               <FormInput type="text" name="prompt-chat" />
@@ -87,19 +118,19 @@ export default function Home() {
               <Button disabled={isLoading}>Generate</Button>
             </FormRow>
           </Form>
-          {text && <p>{ text }</p>}
+          {text && <p>{text}</p>}
         </Container>
       </Section>
       <Section>
         <Container size="content">
           <Form className={styles.form} onSubmit={handleOnGenerateImage}>
-            {image && (<img src={image} alt="Generated Image" />) }
+            {image && (<img src={image} alt="Generated Image" />)}
             <h2>Generate an Image</h2>
             <FormRow>
-            <FormInput type="text" name="prompt-image" />
+              <FormInput type="text" name="prompt-image" />
             </FormRow>
             <FormRow>
-            <Button disabled={isLoading}>Generate</Button>
+              <Button disabled={isLoading}>Generate</Button>
             </FormRow>
           </Form>
         </Container>
